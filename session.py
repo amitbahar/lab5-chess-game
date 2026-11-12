@@ -68,7 +68,8 @@ class Session:
         self.position = new_position()
         self.notation = []
         self.opponent = opponent
-        # Every move from the starting position, so earlier positions can be rebuilt.
+        # Every move from the starting position, as play() keyword arguments, so
+        # earlier positions can be rebuilt. Shared by save/load and undo.
         self.history: list[dict[str, str]] = []
 
     def play(self, source, target):
@@ -161,6 +162,20 @@ class Session:
         found.sort(key=lambda entry: entry[0], reverse=True)
         return [entry for _, entry in found]
 
+    def undo(self) -> None:
+        """Take back the last move; against the computer, also its reply.
+
+        Does nothing when no move has been played.
+        """
+        if not self.history:
+            return
+        # Against the computer, return to the player's turn (White).
+        steps = 2 if self.opponent == "computer" and self.position[1] == "w" else 1
+        moves = self.history[:-steps]
+        self.reset(self.opponent)
+        for step in moves:
+            self.play(**step)
+
     def after_move(self):
         pass
 
@@ -170,6 +185,7 @@ class Session:
             "turn": self.position[1],
             "moves": self.notation,
             "opponent": self.opponent,
+            "can_undo": bool(self.history),
             "status": status(self.position),
             "winner": winner(self.position),
             **self.sidebar(),
@@ -194,6 +210,8 @@ class Session:
             self.play(*choose_move(self.position))
         elif command == "legal":
             return {"targets": legal_moves(self.position, action.get("source"))}
+        elif command == "undo":
+            self.undo()
         elif command == "new":
             self.reset(action.get("opponent", "human"))
         elif command == "promotion-setup":

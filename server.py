@@ -50,7 +50,7 @@ def make_server(port=8000, save_dir=None):
                     raise ValueError("Invalid request size")
                 action = json.loads(self.rfile.read(size))
                 if not isinstance(action, dict):
-                    raise ValueError("Expected an action object")
+                    raise TypeError("Expected an action object")
                 result = session.dispatch(action)
             except (ValueError, TypeError) as error:
                 self.send_json(400, {"error": str(error)})
