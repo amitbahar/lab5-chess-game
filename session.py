@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from computer import choose_move
+from captured import missing_pieces
 from game import (
     legal_moves,
     move,
@@ -67,6 +68,7 @@ class Session:
             raise ValueError("Unknown opponent")
         self.position = new_position()
         self.notation = []
+        self.captured = []
         self.opponent = opponent
         # Every move from the starting position, as play() keyword arguments, so
         # earlier positions can be rebuilt. Shared by save/load and undo.
@@ -177,7 +179,7 @@ class Session:
             self.play(**step)
 
     def after_move(self):
-        pass
+        self.captured = missing_pieces(self.position)
 
     def view(self):
         return {
@@ -196,7 +198,7 @@ class Session:
                 and status(self.position) not in ("checkmate", "stalemate"))
 
     def sidebar(self):
-        return {}
+        return {"captured": self.captured}
 
     def dispatch(self, action):
         command = action.get("action")
