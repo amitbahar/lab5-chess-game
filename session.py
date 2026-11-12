@@ -9,7 +9,6 @@ from game import (
     winner,
 )
 
-
 # Legal from the standard starting position under this game's rules.
 # Next move: b7-a8, capturing a rook and reaching the last rank.
 PROMOTION_SETUP = [
@@ -27,17 +26,17 @@ class Session:
         self.position = new_position()
         self.notation = []
         self.opponent = opponent
-        # Moves played so far, as play() arguments. Undo replays all but the last
-        # ones from a new position; save/load can store this list with the opponent.
+        # Every move from the starting position, as play() keyword arguments, so
+        # earlier positions can be rebuilt. Shared with save/load.
         self.history = []
 
     def play(self, source, target):
         label = move(self.position, source, target)
         self.notation.append(label)
-        self.history.append((source, target))
+        self.history.append({"source": source, "target": target})
         self.after_move()
 
-    def undo(self):
+    def undo(self) -> None:
         """Take back the last move; against the computer, also its reply.
 
         Does nothing when no move has been played.
@@ -46,10 +45,14 @@ class Session:
             return
         # Against the computer, return to the player's turn (White).
         steps = 2 if self.opponent == "computer" and self.position[1] == "w" else 1
-        moves = self.history[:-steps]
-        self.__init__(self.opponent)
-        for played in moves:
-            self.play(*played)
+        restored = type(self)(self.opponent)
+        for step in self.history[:-steps]:
+            restored.play(**step)
+        self.__dict__.update(restored.__dict__)
+
+    def restart(self, opponent: str = "human") -> None:
+        """Replace this game with a new one, keeping the same Session object."""
+        self.__dict__.update(type(self)(opponent).__dict__)
 
     def after_move(self):
         pass
@@ -88,9 +91,9 @@ class Session:
         elif command == "undo":
             self.undo()
         elif command == "new":
-            self.__init__(action.get("opponent", "human"))
+            self.restart(action.get("opponent", "human"))
         elif command == "promotion-setup":
-            self.__init__()
+            self.restart()
             for source, target in PROMOTION_SETUP:
                 self.play(source, target)
         else:

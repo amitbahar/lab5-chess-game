@@ -1,3 +1,18 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+# Pyflakes/pycodestyle, import order, likely bugs, modern syntax, exception style.
+select = ["E", "F", "W", "I", "B", "UP", "TRY", "SIM"]
+# Error messages here are shown to the player, so they stay at the raise.
+ignore = ["TRY003", "TRY301"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["game.py", "session.py", "computer.py", "server.py"]
+check_untyped_defs = true
