@@ -3,12 +3,15 @@
 The history that undo and load replay must include the promoted piece.
 """
 
+from pathlib import Path
+from typing import Any
+
 from session import Session
 
 # After promotion-setup, White plays b7xa8 and Black plays g2xh1; both promote.
 
 
-def setup(save_dir=None):
+def setup(save_dir: Path | None = None) -> Session:
     session = Session()
     if save_dir is not None:
         session.save_dir = save_dir
@@ -16,13 +19,13 @@ def setup(save_dir=None):
     return session
 
 
-def promote(session, source, target, piece):
+def promote(session: Session, source: str, target: str, piece: str) -> dict[str, Any]:
     return session.dispatch(
         {"action": "move", "source": source, "target": target, "promotion": piece}
     )
 
 
-def test_undo_takes_back_a_promotion_and_its_capture():
+def test_undo_takes_back_a_promotion_and_its_capture() -> None:
     session = setup()
     before_moves = list(session.view()["moves"])
     before_captured = list(session.view().get("captured", []))
@@ -35,7 +38,7 @@ def test_undo_takes_back_a_promotion_and_its_capture():
     assert view.get("captured", []) == before_captured
 
 
-def test_undo_keeps_an_earlier_promotion_as_the_chosen_piece():
+def test_undo_keeps_an_earlier_promotion_as_the_chosen_piece() -> None:
     session = setup()
     promote(session, "b7", "a8", "N")
     promote(session, "g2", "h1", "Q")
@@ -46,7 +49,7 @@ def test_undo_keeps_an_earlier_promotion_as_the_chosen_piece():
     assert view["turn"] == "b"
 
 
-def test_save_and_load_a_game_with_promotions_then_undo(tmp_path):
+def test_save_and_load_a_game_with_promotions_then_undo(tmp_path: Path) -> None:
     original = setup(tmp_path)
     promote(original, "b7", "a8", "R")
     promote(original, "g2", "h1", "B")
@@ -65,7 +68,7 @@ def test_save_and_load_a_game_with_promotions_then_undo(tmp_path):
     assert view["board"]["a8"] == "wR"
 
 
-def test_load_rejects_a_saved_promotion_to_a_king(tmp_path):
+def test_load_rejects_a_saved_promotion_to_a_king(tmp_path: Path) -> None:
     original = setup(tmp_path)
     promote(original, "b7", "a8", "Q")
     original.dispatch({"action": "save", "name": "bad"})

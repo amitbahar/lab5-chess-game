@@ -4,19 +4,20 @@ import argparse
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import Any
 
 from session import Session
 
 STATIC = Path(__file__).parent / "static"
 
 
-def make_server(port=8000, save_dir=None):
+def make_server(port: int = 8000, save_dir: str | Path | None = None) -> HTTPServer:
     session = Session()
     if save_dir is not None:
         session.save_dir = Path(save_dir)
 
     class Handler(BaseHTTPRequestHandler):
-        def respond(self, code, body, content_type):
+        def respond(self, code: int, body: bytes, content_type: str) -> None:
             self.send_response(code)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
@@ -24,10 +25,10 @@ def make_server(port=8000, save_dir=None):
             self.end_headers()
             self.wfile.write(body)
 
-        def send_json(self, code, value):
+        def send_json(self, code: int, value: Any) -> None:
             self.respond(code, json.dumps(value).encode(), "application/json")
 
-        def do_GET(self):
+        def do_GET(self) -> None:
             if self.path == "/api/state":
                 self.send_json(200, session.view())
                 return
@@ -40,7 +41,7 @@ def make_server(port=8000, save_dir=None):
             name, content_type = routes[self.path]
             self.respond(200, (STATIC / name).read_bytes(), content_type)
 
-        def do_POST(self):
+        def do_POST(self) -> None:
             if self.path != "/api/action":
                 self.send_json(404, {"error": "Not found"})
                 return

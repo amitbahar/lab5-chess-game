@@ -1,7 +1,7 @@
 from session import Session
 
 
-def test_display_after_capture_and_new_game():
+def test_display_after_capture_and_new_game() -> None:
     session = Session()
     assert session.view()["captured"] == []
     session.play("e2", "e4")

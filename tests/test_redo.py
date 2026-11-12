@@ -16,6 +16,8 @@ Expected outcomes, decided before implementing redo on top of undo:
 """
 
 import json
+from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -24,22 +26,22 @@ from session import Session
 CAPTURE = [("e2", "e4"), ("d7", "d5"), ("e4", "d5")]
 
 
-def session_in(folder, opponent="human"):
+def session_in(folder: Path, opponent: str = "human") -> Session:
     session = Session(opponent)
     session.save_dir = folder
     return session
 
 
-def play_all(session, moves):
+def play_all(session: Session, moves: list[tuple[str, str]]) -> None:
     for source, target in moves:
         session.dispatch({"action": "move", "source": source, "target": target})
 
 
-def act(session, command):
+def act(session: Session, command: str) -> dict[str, Any]:
     return session.dispatch({"action": command})
 
 
-def promoted(piece):
+def promoted(piece: str) -> Session:
     """A game whose last move is b7xa8, promoting to the given piece."""
     session = Session()
     session.dispatch({"action": "promotion-setup"})
@@ -50,7 +52,7 @@ def promoted(piece):
 # R1: captures and promotions -------------------------------------------------------
 
 
-def test_redo_restores_a_capture_and_the_captured_pieces_display():
+def test_redo_restores_a_capture_and_the_captured_pieces_display() -> None:
     session = Session()
     play_all(session, CAPTURE)
     before = session.view()
@@ -62,7 +64,7 @@ def test_redo_restores_a_capture_and_the_captured_pieces_display():
 
 
 @pytest.mark.parametrize("piece", list("QRBN"))
-def test_redo_restores_a_promotion_with_the_chosen_piece(piece):
+def test_redo_restores_a_promotion_with_the_chosen_piece(piece: str) -> None:
     session = promoted(piece)
     before = session.view()
     assert before["board"]["a8"] == "w" + piece
@@ -76,7 +78,7 @@ def test_redo_restores_a_promotion_with_the_chosen_piece(piece):
     assert "bR" in view["captured"]
 
 
-def test_undo_then_redo_of_a_promotion_keeps_later_moves_replayable():
+def test_undo_then_redo_of_a_promotion_keeps_later_moves_replayable() -> None:
     session = promoted("N")
     session.dispatch({"action": "move", "source": "g2", "target": "h1", "promotion": "R"})
     before = session.view()
@@ -89,7 +91,7 @@ def test_undo_then_redo_of_a_promotion_keeps_later_moves_replayable():
 # R2: order, empty redo, can_redo ---------------------------------------------------
 
 
-def test_redo_with_nothing_to_redo_does_nothing():
+def test_redo_with_nothing_to_redo_does_nothing() -> None:
     session = Session()
     assert act(session, "redo") == session.view()
     assert session.view()["can_redo"] is False
@@ -98,7 +100,7 @@ def test_redo_with_nothing_to_redo_does_nothing():
     assert session.view()["can_redo"] is False
 
 
-def test_several_undos_are_redone_one_at_a_time_in_order():
+def test_several_undos_are_redone_one_at_a_time_in_order() -> None:
     session = Session()
     play_all(session, [("e2", "e4"), ("e7", "e5"), ("g1", "f3")])
     for _ in range(3):
@@ -115,7 +117,7 @@ def test_several_undos_are_redone_one_at_a_time_in_order():
     assert view["can_undo"] is True
 
 
-def test_undo_and_redo_can_alternate():
+def test_undo_and_redo_can_alternate() -> None:
     session = Session()
     play_all(session, CAPTURE)
     final = session.view()
@@ -127,7 +129,7 @@ def test_undo_and_redo_can_alternate():
 # R3: save and load keep the redo continuation --------------------------------------
 
 
-def test_undo_save_load_redo(tmp_path):
+def test_undo_save_load_redo(tmp_path: Path) -> None:
     original = session_in(tmp_path)
     play_all(original, CAPTURE)
     final = original.view()
@@ -143,7 +145,7 @@ def test_undo_save_load_redo(tmp_path):
     assert act(restored, "redo") == final
 
 
-def test_undo_save_load_redo_keeps_a_promotion_choice(tmp_path):
+def test_undo_save_load_redo_keeps_a_promotion_choice(tmp_path: Path) -> None:
     original = promoted("B")
     original.save_dir = tmp_path
     final = original.view()
@@ -157,7 +159,7 @@ def test_undo_save_load_redo_keeps_a_promotion_choice(tmp_path):
     assert view["board"]["a8"] == "wB"
 
 
-def test_a_save_without_undone_moves_loads_with_nothing_to_redo(tmp_path):
+def test_a_save_without_undone_moves_loads_with_nothing_to_redo(tmp_path: Path) -> None:
     original = session_in(tmp_path)
     play_all(original, CAPTURE)
     original.dispatch({"action": "save", "name": "plain"})
@@ -165,7 +167,7 @@ def test_a_save_without_undone_moves_loads_with_nothing_to_redo(tmp_path):
     assert restored.dispatch({"action": "load", "name": "plain"})["can_redo"] is False
 
 
-def test_loading_a_game_replaces_the_current_redo_continuation(tmp_path):
+def test_loading_a_game_replaces_the_current_redo_continuation(tmp_path: Path) -> None:
     other = session_in(tmp_path)
     play_all(other, [("d2", "d4")])
     other.dispatch({"action": "save", "name": "other"})
@@ -178,7 +180,7 @@ def test_loading_a_game_replaces_the_current_redo_continuation(tmp_path):
     assert act(session, "redo")["moves"] == ["d2-d4"]
 
 
-def test_a_save_whose_redo_continuation_is_illegal_is_refused(tmp_path):
+def test_a_save_whose_redo_continuation_is_illegal_is_refused(tmp_path: Path) -> None:
     original = session_in(tmp_path)
     play_all(original, CAPTURE)
     act(original, "undo")
@@ -189,7 +191,7 @@ def test_a_save_whose_redo_continuation_is_illegal_is_refused(tmp_path):
     # d7-d5). Turn it into a move White cannot make, wherever the file keeps it.
     changed = []
 
-    def tamper(value):
+    def tamper(value: object) -> None:
         if isinstance(value, dict):
             if value.get("source") == "e4" and value.get("target") == "d5":
                 value["target"] = "h5"
@@ -214,7 +216,7 @@ def test_a_save_whose_redo_continuation_is_illegal_is_refused(tmp_path):
 # R4: a new move discards the redo continuation -------------------------------------
 
 
-def test_playing_a_different_move_after_undo_discards_redo():
+def test_playing_a_different_move_after_undo_discards_redo() -> None:
     session = Session()
     play_all(session, CAPTURE)
     act(session, "undo")
@@ -225,7 +227,7 @@ def test_playing_a_different_move_after_undo_discards_redo():
     assert view["moves"] == ["e2-e4", "d7-d5", "b1-c3"]
 
 
-def test_a_new_move_discards_every_undone_move_not_just_one():
+def test_a_new_move_discards_every_undone_move_not_just_one() -> None:
     session = Session()
     play_all(session, [("e2", "e4"), ("e7", "e5"), ("g1", "f3")])
     act(session, "undo")
@@ -238,7 +240,7 @@ def test_a_new_move_discards_every_undone_move_not_just_one():
 # R5: against the computer ----------------------------------------------------------
 
 
-def computer_game(moves):
+def computer_game(moves: list[tuple[str, str]]) -> Session:
     """Play the given white moves, each answered by the computer."""
     session = Session("computer")
     for source, target in moves:
@@ -247,7 +249,7 @@ def computer_game(moves):
     return session
 
 
-def test_redo_against_the_computer_restores_the_move_and_the_same_reply():
+def test_redo_against_the_computer_restores_the_move_and_the_same_reply() -> None:
     session = computer_game([("e2", "e4"), ("d2", "d4")])
     before = session.view()
     act(session, "undo")
@@ -258,7 +260,7 @@ def test_redo_against_the_computer_restores_the_move_and_the_same_reply():
     assert not session.computer_to_move()
 
 
-def test_redo_against_the_computer_restores_whole_turns_in_order():
+def test_redo_against_the_computer_restores_whole_turns_in_order() -> None:
     session = computer_game([("e2", "e4"), ("d2", "d4"), ("g1", "f3")])
     before = session.view()
     for _ in range(3):
@@ -269,19 +271,21 @@ def test_redo_against_the_computer_restores_whole_turns_in_order():
     assert act(session, "redo") == before
 
 
-def test_redo_against_the_computer_does_not_ask_the_computer_again(monkeypatch):
+def test_redo_against_the_computer_does_not_ask_the_computer_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     session = computer_game([("e2", "e4")])
     before = session.view()
     act(session, "undo")
 
-    def no_computer(position):
+    def no_computer(position: object) -> None:
         raise AssertionError("redo must replay the recorded reply")
 
     monkeypatch.setattr("session.choose_move", no_computer)
     assert act(session, "redo") == before
 
 
-def test_player_move_after_undo_against_the_computer_discards_redo():
+def test_player_move_after_undo_against_the_computer_discards_redo() -> None:
     session = computer_game([("e2", "e4")])
     act(session, "undo")
     play_all(session, [("d2", "d4")])
@@ -293,7 +297,7 @@ def test_player_move_after_undo_against_the_computer_discards_redo():
 
 
 @pytest.mark.parametrize("opponent", ["human", "computer"])
-def test_new_game_clears_undo_and_redo(opponent):
+def test_new_game_clears_undo_and_redo(opponent: str) -> None:
     session = Session()
     play_all(session, CAPTURE)
     act(session, "undo")

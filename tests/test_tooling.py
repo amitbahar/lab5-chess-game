@@ -18,7 +18,7 @@ ROOT = Path(__file__).parent.parent
     ],
     ids=["lint", "format", "types"],
 )
-def test_tool_passes(command):
+def test_tool_passes(command: list[str]) -> None:
     result = subprocess.run(
         [sys.executable, "-m", *command], cwd=ROOT, capture_output=True, text=True
     )

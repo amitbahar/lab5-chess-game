@@ -4,6 +4,8 @@ Hypothesis plays random legal games (choosing among the legal moves at each step
 instead of the few hand-picked games in test_undo.py.
 """
 
+from typing import Any
+
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -11,12 +13,15 @@ from computer import candidate_moves
 from game import new_position
 from session import Session
 
+# A session after random moves, and the view after each move.
+Game = tuple[Session, list[dict[str, Any]]]
+
 # Each game replays every move on undo, so keep the games short and few.
 FAST = settings(max_examples=30, deadline=None)
 
 
 @st.composite
-def games(draw, max_moves=10):
+def games(draw: st.DrawFn, max_moves: int = 10) -> Game:
     """A Session after a random sequence of legal moves, and the views seen."""
     session = Session()
     views = [snapshot(session)]
@@ -29,7 +34,7 @@ def games(draw, max_moves=10):
     return session, views
 
 
-def snapshot(session):
+def snapshot(session: Session) -> dict[str, Any]:
     """The parts of the view that undo must restore, copied."""
     view = session.view()
     return {
@@ -43,7 +48,7 @@ def snapshot(session):
 
 @FAST
 @given(games())
-def test_each_undo_restores_the_view_before_that_move(game):
+def test_each_undo_restores_the_view_before_that_move(game: Game) -> None:
     session, views = game
     for expected in reversed(views[:-1]):
         session.undo()
@@ -52,7 +57,7 @@ def test_each_undo_restores_the_view_before_that_move(game):
 
 @FAST
 @given(games())
-def test_undo_all_the_way_back_reaches_the_start_and_stops(game):
+def test_undo_all_the_way_back_reaches_the_start_and_stops(game: Game) -> None:
     session, views = game
     for _ in range(len(views) + 2):  # Two extra undos at the beginning.
         session.undo()
@@ -63,7 +68,7 @@ def test_undo_all_the_way_back_reaches_the_start_and_stops(game):
 
 @FAST
 @given(games())
-def test_replaying_an_undone_move_gives_the_same_game(game):
+def test_replaying_an_undone_move_gives_the_same_game(game: Game) -> None:
     session, views = game
     if not session.history:
         return

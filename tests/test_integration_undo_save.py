@@ -4,6 +4,9 @@ Every step goes through dispatch(), the same entry point the browser uses, and
 games are written to real files in a temporary folder.
 """
 
+from pathlib import Path
+from typing import Any
+
 from game import new_position
 from session import SAVE_SUFFIX, Session
 
@@ -11,18 +14,18 @@ from session import SAVE_SUFFIX, Session
 WITH_CAPTURE = [("e2", "e4"), ("d7", "d5"), ("e4", "d5"), ("g8", "f6")]
 
 
-def fresh(save_dir, opponent="human"):
+def fresh(save_dir: Path, opponent: str = "human") -> Session:
     session = Session(opponent)
     session.save_dir = save_dir
     return session
 
 
-def play(session, moves):
+def play(session: Session, moves: list[tuple[str, str]]) -> None:
     for source, target in moves:
         session.dispatch({"action": "move", "source": source, "target": target})
 
 
-def state(view):
+def state(view: dict[str, Any]) -> dict[str, Any]:
     """What undo and load must restore, copied so later moves cannot change it."""
     return {
         "board": dict(view["board"]),
@@ -32,7 +35,7 @@ def state(view):
     }
 
 
-def test_undo_after_load_restores_a_capture_made_before_saving(tmp_path):
+def test_undo_after_load_restores_a_capture_made_before_saving(tmp_path: Path) -> None:
     original = fresh(tmp_path)
     play(original, WITH_CAPTURE[:2])
     before_capture = state(original.view())
@@ -56,7 +59,7 @@ def test_undo_after_load_restores_a_capture_made_before_saving(tmp_path):
     assert view["moves"] == ["e2-e4", "d7-d5"]
 
 
-def test_undo_before_saving_is_kept_and_undo_continues_to_the_start(tmp_path):
+def test_undo_before_saving_is_kept_and_undo_continues_to_the_start(tmp_path: Path) -> None:
     original = fresh(tmp_path)
     play(original, WITH_CAPTURE)
     original.dispatch({"action": "undo"})
@@ -81,7 +84,7 @@ def test_undo_before_saving_is_kept_and_undo_continues_to_the_start(tmp_path):
     assert view["moves"] == []
 
 
-def test_new_game_after_load_cannot_undo_into_the_loaded_game(tmp_path):
+def test_new_game_after_load_cannot_undo_into_the_loaded_game(tmp_path: Path) -> None:
     original = fresh(tmp_path)
     play(original, WITH_CAPTURE)
     original.dispatch({"action": "save", "name": "old"})

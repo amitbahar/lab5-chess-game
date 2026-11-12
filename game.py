@@ -4,12 +4,20 @@ Check, checkmate and stalemate follow standard chess. There is no castling and n
 en passant.
 """
 
+from typing import Any
+
+# A board maps squares such as "e4" to pieces such as "wP" (side, then kind).
+Board = dict[str, str]
+# A position is [board, side to move]. It is a list (not a tuple) because move()
+# changes it in place, so its two items have different types.
+Position = list[Any]
+
 FILES = "abcdefgh"
 BACK_ROW = "RNBQKBNR"
 
 
-def new_position():
-    board = {}
+def new_position() -> Position:
+    board: Board = {}
     for file, piece in zip(FILES, BACK_ROW, strict=True):
         board[file + "1"] = "w" + piece
         board[file + "2"] = "wP"
@@ -18,12 +26,12 @@ def new_position():
     return [board, "w"]
 
 
-def copy_position(position):
+def copy_position(position: Position) -> Position:
     """Copy the board and side to move."""
     return [position[0].copy(), position[1]]
 
 
-def coordinates(square):
+def coordinates(square: object) -> tuple[int, int]:
     if not isinstance(square, str) or len(square) != 2:
         raise ValueError("Expected a square such as e2")
     if square[0] not in FILES or square[1] not in "12345678":
@@ -31,18 +39,18 @@ def coordinates(square):
     return FILES.index(square[0]), int(square[1]) - 1
 
 
-def other(side):
+def other(side: str) -> str:
     return "b" if side == "w" else "w"
 
 
-def in_check(board, side):
+def in_check(board: Board, side: str) -> bool:
     king = next((square for square, piece in board.items() if piece == side + "K"), None)
     return king is not None and any(
         king in reachable(board, square) for square, piece in board.items()
         if piece[0] != side)
 
 
-def status(position):
+def status(position: Position) -> str | None:
     """Return "check", "checkmate", "stalemate", or None for the side to move."""
     board, turn = position[:2]
     check = in_check(board, turn)
@@ -52,15 +60,16 @@ def status(position):
     return "checkmate" if check else "stalemate"
 
 
-def winner(position):
+def winner(position: Position) -> str | None:
     if status(position) == "checkmate":
         return "White" if position[1] == "b" else "Black"
     return None
 
 
-def legal_moves(position, source):
+def legal_moves(position: Position, source: object) -> list[str]:
     """Moves for the side to move that do not leave its own king in check."""
-    coordinates(source)
+    coordinates(source)  # Raises ValueError unless source is a square such as "e2".
+    assert isinstance(source, str)  # Always true after that check; tells mypy.
     board, turn = position[:2]
     piece = board.get(source)
     if not piece or piece[0] != turn:
@@ -74,7 +83,7 @@ def legal_moves(position, source):
     return targets
 
 
-def reachable(board, source):
+def reachable(board: Board, source: str) -> list[str]:
     """Squares the piece on source attacks or can move to, ignoring check."""
     piece = board[source]
     turn = piece[0]
@@ -125,12 +134,14 @@ def reachable(board, source):
 PROMOTION_PIECES = ("Q", "R", "B", "N")
 
 
-def promotes(position, source, target):
+def promotes(position: Position, source: str, target: str) -> bool:
     piece = position[0].get(source)
     return bool(piece) and piece[1] == "P" and target[1] in "18"
 
 
-def move(position, source, target, promotion=None):
+def move(
+    position: Position, source: str, target: str, promotion: str | None = None
+) -> str:
     """Apply a move in place. Return a short move label.
 
     A pawn reaching the last rank needs promotion: "Q", "R", "B" or "N".
@@ -143,13 +154,14 @@ def move(position, source, target, promotion=None):
         raise ValueError("Choose a queen, rook, bishop or knight to promote to")
     if not promoting and promotion is not None:
         raise ValueError("Only a pawn reaching the last rank promotes")
+    # From here, promotion is set exactly when the move promotes.
     board = position[0]
     piece = board.pop(source)
     captured = board.get(target)
     board[target] = piece
-    if promoting:
+    if promotion is not None:
         board[target] = piece[0] + promotion
     position[1] = other(position[1])
-    suffix = {"check": "+", "checkmate": "#"}.get(status(position), "")
-    chosen = "=" + promotion if promoting else ""
+    suffix = {"check": "+", "checkmate": "#"}.get(status(position) or "", "")
+    chosen = "" if promotion is None else "=" + promotion
     return source + ("x" if captured else "-") + target + chosen + suffix

@@ -6,7 +6,7 @@ from game import copy_position, legal_moves, move, new_position, status, winner
 from session import Session
 
 
-def test_starting_moves_and_blocked_pieces():
+def test_starting_moves_and_blocked_pieces() -> None:
     position = new_position()
     assert len(position[0]) == 32
     assert set(legal_moves(position, "e2")) == {"e3", "e4"}
@@ -15,7 +15,7 @@ def test_starting_moves_and_blocked_pieces():
         assert legal_moves(position, source) == []
 
 
-def test_capture_turn_and_illegal_move_is_atomic():
+def test_capture_turn_and_illegal_move_is_atomic() -> None:
     position = new_position()
     move(position, "e2", "e4")
     before = copy_position(position)
@@ -33,7 +33,7 @@ def test_capture_turn_and_illegal_move_is_atomic():
 @pytest.mark.parametrize("kind,target,blocker", [("R", "d7", "d5"),
                                                ("B", "g7", "e5"),
                                                ("Q", "g4", "e4")])
-def test_sliding_paths_and_own_pieces(kind, target, blocker):
+def test_sliding_paths_and_own_pieces(kind: str, target: str, blocker: str) -> None:
     position: list[Any] = [{"a1": "wK", "h8": "bK", "d4": "w" + kind, blocker: "bP"}, "w"]
     assert blocker in legal_moves(position, "d4")
     assert target not in legal_moves(position, "d4")
@@ -41,7 +41,7 @@ def test_sliding_paths_and_own_pieces(kind, target, blocker):
     assert blocker not in legal_moves(position, "d4")
 
 
-def test_black_pawn_and_blocked_double_step():
+def test_black_pawn_and_blocked_double_step() -> None:
     position = new_position()
     position[1] = "b"
     assert set(legal_moves(position, "d7")) == {"d6", "d5"}
@@ -50,28 +50,28 @@ def test_black_pawn_and_blocked_double_step():
 
 
 @pytest.mark.parametrize("square", [None, "", "a9", "z1", 3])
-def test_bad_squares(square):
+def test_bad_squares(square: object) -> None:
     with pytest.raises(ValueError):
         legal_moves(new_position(), square)
 
 
-def test_king_cannot_move_into_check():
+def test_king_cannot_move_into_check() -> None:
     position = [{"e1": "wK", "d8": "bR", "h8": "bK"}, "w"]
     assert set(legal_moves(position, "e1")) == {"e2", "f1", "f2"}
 
 
-def test_pinned_piece_cannot_leave_the_line():
+def test_pinned_piece_cannot_leave_the_line() -> None:
     position = [{"e1": "wK", "e2": "wB", "e8": "bR", "a8": "bK"}, "w"]
     assert legal_moves(position, "e2") == []
 
 
-def test_check_must_be_answered():
+def test_check_must_be_answered() -> None:
     position = [{"e1": "wK", "a2": "wR", "e8": "bR", "a8": "bK"}, "w"]
     assert status(position) == "check"
     assert legal_moves(position, "a2") == ["e2"]
 
 
-def test_checkmate_finishes_game():
+def test_checkmate_finishes_game() -> None:
     position = [{"g1": "wK", "a1": "wR", "g8": "bK",
                  "f7": "bP", "g7": "bP", "h7": "bP"}, "w"]
     assert move(position, "a1", "a8") == "a1-a8#"
@@ -80,20 +80,20 @@ def test_checkmate_finishes_game():
     assert legal_moves(position, "g8") == []
 
 
-def test_check_is_marked_in_notation():
+def test_check_is_marked_in_notation() -> None:
     position = [{"e1": "wK", "a1": "wR", "e8": "bK"}, "w"]
     assert move(position, "a1", "a8") == "a1-a8+"
     assert status(position) == "check"
     assert winner(position) is None
 
 
-def test_stalemate_is_a_draw():
+def test_stalemate_is_a_draw() -> None:
     position = [{"a8": "bK", "b6": "wQ", "c1": "wK"}, "b"]
     assert status(position) == "stalemate"
     assert winner(position) is None
 
 
-def test_action_notation_and_reset():
+def test_action_notation_and_reset() -> None:
     session = Session()
     session.dispatch({"action": "move", "source": "e2", "target": "e4"})
     assert session.view()["moves"] == ["e2-e4"]
@@ -103,7 +103,7 @@ def test_action_notation_and_reset():
     assert session.position == new_position()
 
 
-def test_promotion_setup_uses_real_moves():
+def test_promotion_setup_uses_real_moves() -> None:
     session = Session()
     session.dispatch({"action": "promotion-setup"})
     assert len(session.notation) == 8

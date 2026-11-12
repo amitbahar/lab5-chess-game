@@ -27,6 +27,8 @@ exclude = [
 python_version = "3.10"
 files = ["."]
 exclude = ["^\\.venv/"]
+# Strict: every function is annotated, so mypy checks all calls (mypy --strict).
+strict = true
 check_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true

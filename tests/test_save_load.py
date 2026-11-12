@@ -4,6 +4,10 @@ import json
 import os
 import threading
 import urllib.request
+from collections.abc import Callable
+from http.server import HTTPServer
+from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -14,18 +18,18 @@ from session import Session
 OPENING = [("e2", "e4"), ("e7", "e5"), ("g1", "f3"), ("b8", "c6"), ("f1", "c4")]
 
 
-def fresh(save_dir, opponent="human"):
+def fresh(save_dir: Path, opponent: str = "human") -> Session:
     session = Session(opponent)
     session.save_dir = save_dir
     return session
 
 
-def play_all(session, moves):
+def play_all(session: Session, moves: list[tuple[str, str]]) -> None:
     for source, target in moves:
         session.dispatch({"action": "move", "source": source, "target": target})
 
 
-def test_round_trip_preserves_board_turn_notation_and_opponent(tmp_path):
+def test_round_trip_preserves_board_turn_notation_and_opponent(tmp_path: Path) -> None:
     original = fresh(tmp_path)
     play_all(original, OPENING)
     original.dispatch({"action": "save", "name": "opening"})
@@ -40,7 +44,7 @@ def test_round_trip_preserves_board_turn_notation_and_opponent(tmp_path):
     assert restored.opponent == "human"
 
 
-def test_history_is_kept_for_undoing_moves_made_before_saving(tmp_path):
+def test_history_is_kept_for_undoing_moves_made_before_saving(tmp_path: Path) -> None:
     original = fresh(tmp_path)
     play_all(original, OPENING)
     original.dispatch({"action": "save", "name": "opening"})
@@ -60,7 +64,7 @@ def test_history_is_kept_for_undoing_moves_made_before_saving(tmp_path):
     assert replayed.notation == restored.notation[:-1]
 
 
-def test_play_after_loading_continues_the_game(tmp_path):
+def test_play_after_loading_continues_the_game(tmp_path: Path) -> None:
     original = fresh(tmp_path)
     play_all(original, OPENING)
     original.dispatch({"action": "save", "name": "opening"})
@@ -72,7 +76,7 @@ def test_play_after_loading_continues_the_game(tmp_path):
     assert len(restored.history) == len(OPENING) + 1
 
 
-def test_computer_opponent_is_restored(tmp_path):
+def test_computer_opponent_is_restored(tmp_path: Path) -> None:
     original = fresh(tmp_path, "computer")
     play_all(original, [("e2", "e4")])
     original.dispatch({"action": "computer-move"})
@@ -87,7 +91,7 @@ def test_computer_opponent_is_restored(tmp_path):
     assert len(restored.notation) == 4
 
 
-def test_finished_game_is_restored_as_finished(tmp_path):
+def test_finished_game_is_restored_as_finished(tmp_path: Path) -> None:
     original = fresh(tmp_path)
     play_all(original, [("f2", "f3"), ("e7", "e5"), ("g2", "g4"), ("d8", "h4")])
     assert original.view()["status"] == "checkmate"
@@ -100,7 +104,7 @@ def test_finished_game_is_restored_as_finished(tmp_path):
     assert view["moves"][-1] == "d8-h4#"
 
 
-def test_save_writes_a_readable_file(tmp_path):
+def test_save_writes_a_readable_file(tmp_path: Path) -> None:
     session = fresh(tmp_path)
     play_all(session, [("e2", "e4")])
     view = session.dispatch({"action": "save", "name": "my-game_1"})
@@ -114,7 +118,7 @@ def test_save_writes_a_readable_file(tmp_path):
     assert data["history"] == [{"source": "e2", "target": "e4"}]
 
 
-def test_new_game_and_promotion_setup_reset_history(tmp_path):
+def test_new_game_and_promotion_setup_reset_history(tmp_path: Path) -> None:
     session = fresh(tmp_path)
     play_all(session, [("e2", "e4")])
     session.dispatch({"action": "new"})
@@ -125,7 +129,7 @@ def test_new_game_and_promotion_setup_reset_history(tmp_path):
 
 
 @pytest.mark.parametrize("name", ["", None, "../escape", "a/b", "dot.name", " ", 7])
-def test_unsafe_or_missing_names_are_refused(tmp_path, name):
+def test_unsafe_or_missing_names_are_refused(tmp_path: Path, name: object) -> None:
     session = fresh(tmp_path)
     with pytest.raises(ValueError):
         session.dispatch({"action": "save", "name": name})
@@ -134,12 +138,12 @@ def test_unsafe_or_missing_names_are_refused(tmp_path, name):
     assert list(tmp_path.iterdir()) == []
 
 
-def test_loading_a_missing_file_is_an_error(tmp_path):
+def test_loading_a_missing_file_is_an_error(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         fresh(tmp_path).dispatch({"action": "load", "name": "nothing"})
 
 
-def corrupt(tmp_path, change):
+def corrupt(tmp_path: Path, change: Callable[[dict[str, Any]], object]) -> None:
     original = fresh(tmp_path)
     play_all(original, OPENING)
     original.dispatch({"action": "save", "name": "game"})
@@ -163,7 +167,9 @@ def corrupt(tmp_path, change):
         lambda d: d.pop("board"),  # missing field
     ],
 )
-def test_inconsistent_files_are_refused_and_leave_the_game_unchanged(tmp_path, change):
+def test_inconsistent_files_are_refused_and_leave_the_game_unchanged(
+    tmp_path: Path, change: Callable[[dict[str, Any]], object]
+) -> None:
     corrupt(tmp_path, change)
     session = fresh(tmp_path)
     play_all(session, [("d2", "d4")])
@@ -173,29 +179,30 @@ def test_inconsistent_files_are_refused_and_leave_the_game_unchanged(tmp_path, c
     assert (session.view(), session.history) == before
 
 
-def test_non_json_file_is_refused(tmp_path):
+def test_non_json_file_is_refused(tmp_path: Path) -> None:
     (tmp_path / "junk.save.json").write_text("not json {")
     with pytest.raises(ValueError):
         fresh(tmp_path).dispatch({"action": "load", "name": "junk"})
 
 
-def call(server, action):
+def call(server: HTTPServer, action: dict[str, Any]) -> dict[str, Any]:
     request = urllib.request.Request(
         f"http://127.0.0.1:{server.server_port}/api/action",
         data=json.dumps(action).encode(),
         headers={"Content-Type": "application/json"},
     )
     with urllib.request.urlopen(request) as response:
-        return json.loads(response.read())
+        view: dict[str, Any] = json.loads(response.read())
+        return view
 
 
-def running(save_dir):
+def running(save_dir: Path) -> HTTPServer:
     server = make_server(0, save_dir=save_dir)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
 
 
-def test_a_fresh_server_resumes_a_saved_game(tmp_path):
+def test_a_fresh_server_resumes_a_saved_game(tmp_path: Path) -> None:
     first = running(tmp_path)
     try:
         call(first, {"action": "new", "opponent": "computer"})
@@ -220,7 +227,7 @@ def test_a_fresh_server_resumes_a_saved_game(tmp_path):
 # --- Edge cases found in review -------------------------------------------------
 
 
-def test_saving_over_an_existing_game_needs_confirmation(tmp_path):
+def test_saving_over_an_existing_game_needs_confirmation(tmp_path: Path) -> None:
     session = fresh(tmp_path)
     play_all(session, [("e2", "e4")])
     session.dispatch({"action": "save", "name": "slot"})
@@ -233,13 +240,15 @@ def test_saving_over_an_existing_game_needs_confirmation(tmp_path):
     assert json.loads((tmp_path / "slot.save.json").read_text())["moves"] == ["e2-e4", "e7-e5"]
 
 
-def test_a_failed_save_keeps_the_previous_file(tmp_path, monkeypatch):
+def test_a_failed_save_keeps_the_previous_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     session = fresh(tmp_path)
     session.dispatch({"action": "save", "name": "slot"})
     before = (tmp_path / "slot.save.json").read_text()
     play_all(session, [("e2", "e4")])
 
-    def broken_replace(*args):
+    def broken_replace(*args: object) -> None:
         raise OSError(28, "No space left on device")
 
     monkeypatch.setattr("session.os.replace", broken_replace)
@@ -249,13 +258,13 @@ def test_a_failed_save_keeps_the_previous_file(tmp_path, monkeypatch):
     assert [p.name for p in tmp_path.iterdir()] == ["slot.save.json"]
 
 
-def test_save_creates_a_missing_folder(tmp_path):
+def test_save_creates_a_missing_folder(tmp_path: Path) -> None:
     session = fresh(tmp_path / "saves" / "nested")
     session.dispatch({"action": "save", "name": "game"})
     assert (tmp_path / "saves" / "nested" / "game.save.json").exists()
 
 
-def test_saved_games_are_listed_newest_first(tmp_path):
+def test_saved_games_are_listed_newest_first(tmp_path: Path) -> None:
     session = fresh(tmp_path)
     assert session.dispatch({"action": "saves"}) == {"saves": []}
     session.dispatch({"action": "save", "name": "first"})
@@ -274,24 +283,24 @@ def test_saved_games_are_listed_newest_first(tmp_path):
     assert all(isinstance(s["saved_at"], str) for s in saves)
 
 
-def test_listing_a_missing_folder_is_empty(tmp_path):
+def test_listing_a_missing_folder_is_empty(tmp_path: Path) -> None:
     assert fresh(tmp_path / "absent").dispatch({"action": "saves"}) == {"saves": []}
 
 
-def test_oversized_files_are_refused(tmp_path):
+def test_oversized_files_are_refused(tmp_path: Path) -> None:
     (tmp_path / "huge.save.json").write_text(" " * 2_000_000 + "{}")
     with pytest.raises(ValueError, match="too large"):
         fresh(tmp_path).dispatch({"action": "load", "name": "huge"})
 
 
-def test_deeply_nested_files_are_refused(tmp_path):
+def test_deeply_nested_files_are_refused(tmp_path: Path) -> None:
     (tmp_path / "deep.save.json").write_text("[" * 200_000 + "]" * 200_000)
     with pytest.raises(ValueError):
         fresh(tmp_path).dispatch({"action": "load", "name": "deep"})
 
 
 @pytest.mark.parametrize("contents", ["[]", "null", '"text"', "{}"])
-def test_files_that_are_not_save_objects_are_refused(tmp_path, contents):
+def test_files_that_are_not_save_objects_are_refused(tmp_path: Path, contents: str) -> None:
     (tmp_path / "odd.save.json").write_text(contents)
     with pytest.raises(ValueError):
         fresh(tmp_path).dispatch({"action": "load", "name": "odd"})

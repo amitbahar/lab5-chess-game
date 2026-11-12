@@ -1,14 +1,26 @@
 """A computer opponent that looks one move ahead."""
 
 import random
+from collections.abc import Iterator
 
-from game import PROMOTION_PIECES, copy_position, legal_moves, move, promotes, status
+from game import (
+    PROMOTION_PIECES,
+    Position,
+    copy_position,
+    legal_moves,
+    move,
+    promotes,
+    status,
+)
 
 VALUES = {"P": 1, "N": 3, "B": 3, "R": 5, "Q": 9, "K": 0}
 CHECKMATE = 1000
 
+# (source, target) or (source, target, promotion piece): arguments for move().
+Candidate = tuple[str, str] | tuple[str, str, str]
 
-def candidate_moves(position):
+
+def candidate_moves(position: Position) -> Iterator[Candidate]:
     board, turn = position[:2]
     for source, piece in sorted(board.items()):
         if piece[0] == turn:
@@ -20,7 +32,7 @@ def candidate_moves(position):
                     yield (source, target)
 
 
-def evaluate(position, side):
+def evaluate(position: Position, side: str) -> int:
     """Score a position for side: material, unless the game is over."""
     result = status(position)
     if result == "checkmate":
@@ -31,10 +43,13 @@ def evaluate(position, side):
                for piece in position[0].values())
 
 
-def choose_move(position, rng=random):
+def choose_move(
+    position: Position, rng: random.Random | None = None
+) -> Candidate | None:
     """Return the move with the best score after it, or None if there is no move."""
     side = position[1]
-    best, best_score = [], None
+    best: list[Candidate] = []
+    best_score: int | None = None
     for candidate in candidate_moves(position):
         trial = copy_position(position)
         move(trial, *candidate)
@@ -43,4 +58,4 @@ def choose_move(position, rng=random):
             best, best_score = [candidate], score
         elif score == best_score:
             best.append(candidate)
-    return rng.choice(best) if best else None
+    return (rng or random).choice(best) if best else None

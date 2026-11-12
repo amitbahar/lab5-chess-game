@@ -11,6 +11,7 @@ from typing import Any
 from captured import missing_pieces
 from computer import choose_move
 from game import (
+    Position,
     legal_moves,
     move,
     new_position,
@@ -61,21 +62,21 @@ class Session:
     # Where saved games are written. Kept outside reset() so a new game keeps it.
     save_dir = Path(__file__).parent
 
-    def __init__(self, opponent="human"):
+    def __init__(self, opponent: str = "human") -> None:
         self.reset(opponent)
 
-    def reset(self, opponent="human"):
+    def reset(self, opponent: str = "human") -> None:
         if opponent not in ("human", "computer"):
             raise ValueError("Unknown opponent")
-        self.position = new_position()
-        self.notation = []
-        self.captured = []
+        self.position: Position = new_position()
+        self.notation: list[str] = []
+        self.captured: list[str] = []
         self.opponent = opponent
         # Every move from the starting position, as play() keyword arguments, so
         # earlier positions can be rebuilt. Shared by save/load and undo.
         self.history: list[dict[str, str]] = []
 
-    def play(self, source, target, promotion=None):
+    def play(self, source: str, target: str, promotion: str | None = None) -> None:
         label = move(self.position, source, target, promotion)
         self.notation.append(label)
         step = {"source": source, "target": target}
@@ -132,7 +133,7 @@ class Session:
                 and set(step) <= {"source", "target", "promotion"}
                 for step in history):
             raise ValueError("The saved game's history is damaged")
-        restored = type(self)(data.get("opponent"))
+        restored = type(self)(data.get("opponent", ""))
         try:
             for step in history:
                 restored.play(**step)
@@ -149,7 +150,7 @@ class Session:
         folder = Path(self.save_dir)
         if not folder.is_dir():
             return []
-        found = []
+        found: list[tuple[float, dict[str, Any]]] = []
         for path in folder.glob("*" + SAVE_SUFFIX):
             name = path.name[:-len(SAVE_SUFFIX)]
             if not SAVE_NAME.fullmatch(name):
@@ -183,10 +184,10 @@ class Session:
         for step in moves:
             self.play(**step)
 
-    def after_move(self):
+    def after_move(self) -> None:
         self.captured = missing_pieces(self.position)
 
-    def view(self):
+    def view(self) -> dict[str, Any]:
         return {
             "board": self.position[0],
             "turn": self.position[1],
@@ -198,25 +199,29 @@ class Session:
             **self.sidebar(),
         }
 
-    def computer_to_move(self):
+    def computer_to_move(self) -> bool:
         return (self.opponent == "computer" and self.position[1] == "b"
                 and status(self.position) not in ("checkmate", "stalemate"))
 
-    def sidebar(self):
+    def sidebar(self) -> dict[str, Any]:
         return {"captured": self.captured}
 
-    def dispatch(self, action):
+    def dispatch(self, action: dict[str, Any]) -> dict[str, Any]:
         command = action.get("action")
         if command == "move":
             if self.computer_to_move():
                 raise ValueError("Wait for the computer's move")
-            self.play(action.get("source"), action.get("target"), action.get("promotion"))
+            # A missing square becomes "", which move() rejects like any bad square.
+            self.play(action.get("source", ""), action.get("target", ""), action.get("promotion"))
         elif command == "computer-move":
             if not self.computer_to_move():
                 raise ValueError("It is not the computer's turn")
-            self.play(*choose_move(self.position))
+            choice = choose_move(self.position)
+            if choice is None:  # computer_to_move() rules this out; fail clearly anyway.
+                raise ValueError("The computer has no move")
+            self.play(*choice)
         elif command == "legal":
-            source = action.get("source")
+            source = action.get("source", "")
             targets = legal_moves(self.position, source)
             return {"targets": targets,
                     "promotions": [t for t in targets if promotes(self.position, source, t)]}
