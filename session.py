@@ -27,11 +27,29 @@ class Session:
         self.position = new_position()
         self.notation = []
         self.opponent = opponent
+        # Moves played so far, as play() arguments. Undo replays all but the last
+        # ones from a new position; save/load can store this list with the opponent.
+        self.history = []
 
     def play(self, source, target):
         label = move(self.position, source, target)
         self.notation.append(label)
+        self.history.append((source, target))
         self.after_move()
+
+    def undo(self):
+        """Take back the last move; against the computer, also its reply.
+
+        Does nothing when no move has been played.
+        """
+        if not self.history:
+            return
+        # Against the computer, return to the player's turn (White).
+        steps = 2 if self.opponent == "computer" and self.position[1] == "w" else 1
+        moves = self.history[:-steps]
+        self.__init__(self.opponent)
+        for played in moves:
+            self.play(*played)
 
     def after_move(self):
         pass
@@ -42,6 +60,7 @@ class Session:
             "turn": self.position[1],
             "moves": self.notation,
             "opponent": self.opponent,
+            "can_undo": bool(self.history),
             "status": status(self.position),
             "winner": winner(self.position),
             **self.sidebar(),
@@ -66,6 +85,8 @@ class Session:
             self.play(*choose_move(self.position))
         elif command == "legal":
             return {"targets": legal_moves(self.position, action.get("source"))}
+        elif command == "undo":
+            self.undo()
         elif command == "new":
             self.__init__(action.get("opponent", "human"))
         elif command == "promotion-setup":
