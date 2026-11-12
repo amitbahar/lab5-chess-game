@@ -10,7 +10,7 @@ BACK_ROW = "RNBQKBNR"
 
 def new_position():
     board = {}
-    for file, piece in zip(FILES, BACK_ROW):
+    for file, piece in zip(FILES, BACK_ROW, strict=True):
         board[file + "1"] = "w" + piece
         board[file + "2"] = "wP"
         board[file + "7"] = "bP"

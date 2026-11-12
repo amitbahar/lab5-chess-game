@@ -10,8 +10,10 @@ from session import Session
 STATIC = Path(__file__).parent / "static"
 
 
-def make_server(port=8000):
+def make_server(port=8000, save_dir=None):
     session = Session()
+    if save_dir is not None:
+        session.save_dir = Path(save_dir)
 
     class Handler(BaseHTTPRequestHandler):
         def respond(self, code, body, content_type):
@@ -61,8 +63,10 @@ def make_server(port=8000):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--save-dir", type=Path, default=None,
+                        help="folder for saved games (default: this folder)")
     args = parser.parse_args()
-    server = make_server(args.port)
+    server = make_server(args.port, args.save_dir)
     print(f"Open http://127.0.0.1:{server.server_port}", flush=True)
     try:
         server.serve_forever()

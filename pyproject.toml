@@ -1,3 +1,32 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 99
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, import order, bugbear, pyupgrade, simplify.
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+
+[tool.ruff.format]
+# Files shared with the undo, captured-pieces and promotion branches keep their
+# hand-aligned style until those merges are done, so reformatting does not turn
+# every merge into a conflict. Remove entries from this list after merging.
+exclude = [
+    "computer.py",
+    "game.py",
+    "server.py",
+    "session.py",
+    "tests/test_computer.py",
+    "tests/test_game.py",
+]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["."]
+exclude = ["^\\.venv/"]
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true

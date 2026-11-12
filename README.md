@@ -29,6 +29,20 @@ To reach promotion quickly from a new game, play a2-a4, h7-h5, a4-a5, h5-h4, a5-
 h4-h3, a6-b7, h3-g2. White can then play b7 to a8. In tests, the `promotion-setup` action
 plays the same moves.
 
+## Saving and loading
+
+Type a name (letters, digits, `-` and `_`) and press **Save** to write the game to
+`<name>.save.json` beside `server.py`, or in the folder given with `--save-dir`. Saving over an
+existing name asks first. **Load** restores the board, turn, moves, opponent and the move
+history used to undo, even after restarting the server. A file that does not match its own
+move history is refused, and the current game is kept.
+
+## Checks
+
+`python -m pytest` also runs `ruff check`, `ruff format --check` and `mypy`. To fix style
+issues, run `ruff check --fix .` and `ruff format .`. Files shared with the other branches are
+left out of formatting until they are merged (see `pyproject.toml`).
+
 ## Files
 
 - `game.py`: board and turn in a position list; movement, check, checkmate and stalemate.

@@ -121,7 +121,7 @@ async function computerReply() {
 async function clickSquare(square) {
   if (busy) return;
   busy = true;
-  message.textContent = '';
+  message.textContent = ''; message.classList.remove('ok');
   try {
     if (selected && targets.includes(square)) {
       state = await request({action:'move', source:selected, target:square});
@@ -138,20 +138,48 @@ async function clickSquare(square) {
   finally { busy = false; }
 }
 
-document.querySelector('#controls').onclick = async event => {
+async function control(event) {
   const button = event.target.closest('button');
   if (!button?.dataset.action || busy) return;
   busy = true;
+  const action = button.dataset.action, name = document.querySelector('#save-name').value.trim();
   try {
-    state = await request({action: button.dataset.action, opponent: button.dataset.opponent});
+    try {
+      state = await request({action, opponent: button.dataset.opponent, name});
+    } catch (error) {
+      // Saving over an existing game is allowed only after the player agrees.
+      if (action !== 'save' || !error.message.includes('already exists')
+          || !confirm(`Replace the saved game "${name}"?`)) throw error;
+      state = await request({action, name, overwrite: true});
+    }
+    if (action === 'save') await refreshSaves();
     selected = null; targets = [];
-    message.textContent = ''; render();
-  } catch (error) { message.textContent = error.message; }
+    message.textContent = action === 'save' ? `Saved as ${name}.save.json`
+                        : action === 'load' ? `Loaded ${name}.save.json` : '';
+    message.classList.toggle('ok', Boolean(message.textContent));
+    render();
+    // A game saved while it was the computer's move resumes with the computer's reply.
+    if (action === 'load') await computerReply();
+  } catch (error) { message.textContent = error.message; message.classList.remove('ok'); }
   finally { busy = false; }
-};
+}
+// Offer existing save names in the name field, newest first.
+async function refreshSaves() {
+  const {saves} = await request({action: 'saves'});
+  document.querySelector('#saved-games').replaceChildren(...saves.map(save => {
+    const option = document.createElement('option');
+    option.value = save.name;
+    option.label = `${save.moves} moves, ${save.opponent === 'computer' ? 'vs computer' : 'two players'}, ${save.saved_at.replace('T', ' ')}`;
+    return option;
+  }));
+}
+
+document.querySelector('#controls').onclick = control;
+document.querySelector('#file-controls').onclick = control;
 
 try {
   const response = await fetch('/api/state');
   if (!response.ok) throw new Error('Could not load the game');
   state = await response.json(); render();
+  await refreshSaves();
 } catch (error) { message.textContent = error.message; }

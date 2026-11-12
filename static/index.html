@@ -15,6 +15,16 @@
           <button data-action="new" data-opponent="human">New game: two players</button>
           <button data-action="new" data-opponent="computer">New game: play the computer</button>
         </div>
+        <h3><label for="save-name">Saved game</label></h3>
+        <div id="file-controls">
+          <input id="save-name" value="game" maxlength="64" pattern="[A-Za-z0-9_\-]+"
+                 list="saved-games" autocomplete="off" spellcheck="false"
+                 aria-describedby="save-hint">
+          <datalist id="saved-games"></datalist>
+          <button data-action="save">Save</button>
+          <button data-action="load">Load</button>
+        </div>
+        <p id="save-hint">Letters, digits, - and _. Saved as <i>name</i>.save.json.</p>
         <section id="captured-panel" hidden><h3>Captured pieces</h3><p id="captured"></p></section>
         <h3>Moves</h3><ol id="moves"></ol>
       </aside>

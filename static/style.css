@@ -51,11 +51,16 @@ aside { background: var(--panel); border-radius: 8px; padding: 20px 22px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, .35); }
 aside h2 { margin: 0 0 6px; font-size: 1.25rem; color: #fff; font-weight: 600; }
 aside h3 { font-size: .85rem; font-weight: 600; color: var(--muted); margin: 20px 0 6px; }
-#controls { display: flex; gap: 8px; flex-wrap: wrap; }
-#controls button { padding: 8px 16px; border: 1px solid #3a465b; background: #283246;
+#controls, #file-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+#controls button, #file-controls button { padding: 8px 16px; border: 1px solid #3a465b; background: #283246;
   color: #fff; border-radius: 6px; }
-#controls button:hover { background: #313d55; border-color: var(--brass); }
+#controls button:hover, #file-controls button:hover { background: #313d55; border-color: var(--brass); }
 #message { min-height: 1.5em; margin: 0 0 8px; color: #ff8a80; }
+#message.ok { color: #a5d6a7; }
+#save-name { flex: 1 1 8em; min-width: 0; padding: 8px 10px; font: inherit; color: #fff;
+  background: var(--night); border: 1px solid #3a465b; border-radius: 6px; }
+#save-name:focus-visible { outline: 3px solid #7fb2ff; outline-offset: 0; }
+#save-hint { margin: 6px 0 0; font-size: .8rem; color: var(--muted); }
 #moves { max-height: 320px; overflow: auto; margin: 0; padding-left: 2.2em;
   font-variant-numeric: tabular-nums; color: var(--muted); }
 #moves li { padding: 2px 0; }
