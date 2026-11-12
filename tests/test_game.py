@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 
 from game import copy_position, legal_moves, move, new_position, status, winner
@@ -32,7 +34,7 @@ def test_capture_turn_and_illegal_move_is_atomic():
                                                ("B", "g7", "e5"),
                                                ("Q", "g4", "e4")])
 def test_sliding_paths_and_own_pieces(kind, target, blocker):
-    position = [{"a1": "wK", "h8": "bK", "d4": "w" + kind, blocker: "bP"}, "w"]
+    position: list[Any] = [{"a1": "wK", "h8": "bK", "d4": "w" + kind, blocker: "bP"}, "w"]
     assert blocker in legal_moves(position, "d4")
     assert target not in legal_moves(position, "d4")
     position[0][blocker] = "wP"

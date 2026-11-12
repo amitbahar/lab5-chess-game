@@ -149,17 +149,20 @@ def corrupt(tmp_path, change):
     path.write_text(json.dumps(data))
 
 
-@pytest.mark.parametrize("change", [
-    lambda d: d["board"].update({"e4": "bQ"}),                 # board disagrees with history
-    lambda d: d.update(turn="w"),                              # turn disagrees with history
-    lambda d: d["moves"].pop(),                                # notation disagrees with history
-    lambda d: d.update(opponent="alien"),                      # unknown opponent
-    lambda d: d["history"].append({"source": "e1", "target": "e5"}),  # illegal move
-    lambda d: d["history"].append({"source": "e1"}),           # malformed step
-    lambda d: d.update(history="e2-e4"),                       # wrong type
-    lambda d: d.update(version=999),                           # unknown format version
-    lambda d: d.pop("board"),                                  # missing field
-])
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda d: d["board"].update({"e4": "bQ"}),  # board disagrees with history
+        lambda d: d.update(turn="w"),  # turn disagrees with history
+        lambda d: d["moves"].pop(),  # notation disagrees with history
+        lambda d: d.update(opponent="alien"),  # unknown opponent
+        lambda d: d["history"].append({"source": "e1", "target": "e5"}),  # illegal move
+        lambda d: d["history"].append({"source": "e1"}),  # malformed step
+        lambda d: d.update(history="e2-e4"),  # wrong type
+        lambda d: d.update(version=999),  # unknown format version
+        lambda d: d.pop("board"),  # missing field
+    ],
+)
 def test_inconsistent_files_are_refused_and_leave_the_game_unchanged(tmp_path, change):
     corrupt(tmp_path, change)
     session = fresh(tmp_path)
@@ -179,7 +182,9 @@ def test_non_json_file_is_refused(tmp_path):
 def call(server, action):
     request = urllib.request.Request(
         f"http://127.0.0.1:{server.server_port}/api/action",
-        data=json.dumps(action).encode(), headers={"Content-Type": "application/json"})
+        data=json.dumps(action).encode(),
+        headers={"Content-Type": "application/json"},
+    )
     with urllib.request.urlopen(request) as response:
         return json.loads(response.read())
 
