@@ -1,6 +1,7 @@
 """Save a game to a file and resume it in a fresh instance."""
 
 import json
+import os
 import threading
 import urllib.request
 
@@ -209,3 +210,83 @@ def test_a_fresh_server_resumes_a_saved_game(tmp_path):
     finally:
         second.shutdown()
         second.server_close()
+
+
+# --- Edge cases found in review -------------------------------------------------
+
+
+def test_saving_over_an_existing_game_needs_confirmation(tmp_path):
+    session = fresh(tmp_path)
+    play_all(session, [("e2", "e4")])
+    session.dispatch({"action": "save", "name": "slot"})
+    play_all(session, [("e7", "e5")])
+    with pytest.raises(ValueError, match="already exists"):
+        session.dispatch({"action": "save", "name": "slot"})
+    assert json.loads((tmp_path / "slot.save.json").read_text())["moves"] == ["e2-e4"]
+
+    session.dispatch({"action": "save", "name": "slot", "overwrite": True})
+    assert json.loads((tmp_path / "slot.save.json").read_text())["moves"] == ["e2-e4", "e7-e5"]
+
+
+def test_a_failed_save_keeps_the_previous_file(tmp_path, monkeypatch):
+    session = fresh(tmp_path)
+    session.dispatch({"action": "save", "name": "slot"})
+    before = (tmp_path / "slot.save.json").read_text()
+    play_all(session, [("e2", "e4")])
+
+    def broken_replace(*args):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr("session.os.replace", broken_replace)
+    with pytest.raises(ValueError, match="Could not save"):
+        session.dispatch({"action": "save", "name": "slot", "overwrite": True})
+    assert (tmp_path / "slot.save.json").read_text() == before
+    assert [p.name for p in tmp_path.iterdir()] == ["slot.save.json"]
+
+
+def test_save_creates_a_missing_folder(tmp_path):
+    session = fresh(tmp_path / "saves" / "nested")
+    session.dispatch({"action": "save", "name": "game"})
+    assert (tmp_path / "saves" / "nested" / "game.save.json").exists()
+
+
+def test_saved_games_are_listed_newest_first(tmp_path):
+    session = fresh(tmp_path)
+    assert session.dispatch({"action": "saves"}) == {"saves": []}
+    session.dispatch({"action": "save", "name": "first"})
+    play_all(session, [("e2", "e4")])
+    session.dispatch({"action": "new", "opponent": "computer"})
+    session.dispatch({"action": "save", "name": "second"})
+    first = tmp_path / "first.save.json"
+    os.utime(first, (first.stat().st_mtime - 60,) * 2)
+    (tmp_path / "junk.save.json").write_text("not json")
+    (tmp_path / "notes.txt").write_text("ignored")
+
+    saves = session.dispatch({"action": "saves"})["saves"]
+    assert [s["name"] for s in saves] == ["second", "first"]
+    assert saves[0]["opponent"] == "computer"
+    assert saves[1]["moves"] == 0
+    assert all(isinstance(s["saved_at"], str) for s in saves)
+
+
+def test_listing_a_missing_folder_is_empty(tmp_path):
+    assert fresh(tmp_path / "absent").dispatch({"action": "saves"}) == {"saves": []}
+
+
+def test_oversized_files_are_refused(tmp_path):
+    (tmp_path / "huge.save.json").write_text(" " * 2_000_000 + "{}")
+    with pytest.raises(ValueError, match="too large"):
+        fresh(tmp_path).dispatch({"action": "load", "name": "huge"})
+
+
+def test_deeply_nested_files_are_refused(tmp_path):
+    (tmp_path / "deep.save.json").write_text("[" * 200_000 + "]" * 200_000)
+    with pytest.raises(ValueError):
+        fresh(tmp_path).dispatch({"action": "load", "name": "deep"})
+
+
+@pytest.mark.parametrize("contents", ["[]", "null", '"text"', "{}"])
+def test_files_that_are_not_save_objects_are_refused(tmp_path, contents):
+    (tmp_path / "odd.save.json").write_text(contents)
+    with pytest.raises(ValueError):
+        fresh(tmp_path).dispatch({"action": "load", "name": "odd"})
