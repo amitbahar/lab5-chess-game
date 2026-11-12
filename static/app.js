@@ -121,7 +121,7 @@ async function computerReply() {
 async function clickSquare(square) {
   if (busy) return;
   busy = true;
-  message.textContent = '';
+  message.textContent = ''; message.classList.remove('ok');
   try {
     if (selected && targets.includes(square)) {
       state = await request({action:'move', source:selected, target:square});
@@ -138,17 +138,25 @@ async function clickSquare(square) {
   finally { busy = false; }
 }
 
-document.querySelector('#controls').onclick = async event => {
+async function control(event) {
   const button = event.target.closest('button');
   if (!button?.dataset.action || busy) return;
   busy = true;
+  const action = button.dataset.action, name = document.querySelector('#save-name').value.trim();
   try {
-    state = await request({action: button.dataset.action, opponent: button.dataset.opponent});
+    state = await request({action, opponent: button.dataset.opponent, name});
     selected = null; targets = [];
-    message.textContent = ''; render();
-  } catch (error) { message.textContent = error.message; }
+    message.textContent = action === 'save' ? `Saved as ${name}.save.json`
+                        : action === 'load' ? `Loaded ${name}.save.json` : '';
+    message.classList.toggle('ok', Boolean(message.textContent));
+    render();
+    // A game saved while it was the computer's move resumes with the computer's reply.
+    if (action === 'load') await computerReply();
+  } catch (error) { message.textContent = error.message; message.classList.remove('ok'); }
   finally { busy = false; }
-};
+}
+document.querySelector('#controls').onclick = control;
+document.querySelector('#file-controls').onclick = control;
 
 try {
   const response = await fetch('/api/state');
