@@ -8,8 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from computer import choose_move
 from captured import missing_pieces
+from computer import choose_move
 from game import (
     legal_moves,
     move,
@@ -78,7 +78,10 @@ class Session:
     def play(self, source, target, promotion=None):
         label = move(self.position, source, target, promotion)
         self.notation.append(label)
-        self.history.append({"source": source, "target": target})
+        step = {"source": source, "target": target}
+        if promotion is not None:
+            step["promotion"] = promotion
+        self.history.append(step)
         self.after_move()
 
     def save_path(self, name: object) -> Path:
@@ -125,13 +128,14 @@ class Session:
         data = read_save(self.save_path(name))
         history = data.get("history")
         if not isinstance(history, list) or not all(
-                isinstance(step, dict) and set(step) == {"source", "target"}
+                isinstance(step, dict) and {"source", "target"} <= set(step)
+                and set(step) <= {"source", "target", "promotion"}
                 for step in history):
             raise ValueError("The saved game's history is damaged")
         restored = type(self)(data.get("opponent"))
         try:
             for step in history:
-                restored.play(step["source"], step["target"])
+                restored.play(**step)
         except ValueError:
             raise ValueError("The saved game contains an illegal move") from None
         if (restored.position[0] != data.get("board")

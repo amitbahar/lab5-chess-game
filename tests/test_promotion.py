@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 
 from computer import choose_move
@@ -20,7 +22,7 @@ def test_white_capture_promotion():
 
 @pytest.mark.parametrize("piece", list("QRBN"))
 def test_chosen_piece_and_notation(piece):
-    position = [{"a1": "wK", "h6": "bK", "d7": "wP"}, "w"]
+    position: list[Any] = [{"a1": "wK", "h6": "bK", "d7": "wP"}, "w"]
     label = move(position, "d7", "d8", piece)
     assert position[0]["d8"] == "w" + piece
     assert label.startswith("d7-d8=" + piece)
