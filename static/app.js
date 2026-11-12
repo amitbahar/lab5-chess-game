@@ -144,7 +144,15 @@ async function control(event) {
   busy = true;
   const action = button.dataset.action, name = document.querySelector('#save-name').value.trim();
   try {
-    state = await request({action, opponent: button.dataset.opponent, name});
+    try {
+      state = await request({action, opponent: button.dataset.opponent, name});
+    } catch (error) {
+      // Saving over an existing game is allowed only after the player agrees.
+      if (action !== 'save' || !error.message.includes('already exists')
+          || !confirm(`Replace the saved game "${name}"?`)) throw error;
+      state = await request({action, name, overwrite: true});
+    }
+    if (action === 'save') await refreshSaves();
     selected = null; targets = [];
     message.textContent = action === 'save' ? `Saved as ${name}.save.json`
                         : action === 'load' ? `Loaded ${name}.save.json` : '';
@@ -155,6 +163,17 @@ async function control(event) {
   } catch (error) { message.textContent = error.message; message.classList.remove('ok'); }
   finally { busy = false; }
 }
+// Offer existing save names in the name field, newest first.
+async function refreshSaves() {
+  const {saves} = await request({action: 'saves'});
+  document.querySelector('#saved-games').replaceChildren(...saves.map(save => {
+    const option = document.createElement('option');
+    option.value = save.name;
+    option.label = `${save.moves} moves, ${save.opponent === 'computer' ? 'vs computer' : 'two players'}, ${save.saved_at.replace('T', ' ')}`;
+    return option;
+  }));
+}
+
 document.querySelector('#controls').onclick = control;
 document.querySelector('#file-controls').onclick = control;
 
@@ -162,4 +181,5 @@ try {
   const response = await fetch('/api/state');
   if (!response.ok) throw new Error('Could not load the game');
   state = await response.json(); render();
+  await refreshSaves();
 } catch (error) { message.textContent = error.message; }
